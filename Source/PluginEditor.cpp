@@ -241,11 +241,14 @@ transportSource(p.transportSource)
     thumbnail.reset (new DemoThumbnailComp (formatManager, transportSource, zoomSlider));
     addAndMakeVisible (thumbnail.get());
     thumbnail->addChangeListener (this);
+    audioProcessor.transportSource.addChangeListener(this);
     
+    startStopButton.setClickingTogglesState(true);
     addAndMakeVisible (startStopButton);
     startStopButton.setColour (TextButton::buttonColourId, Colour (0xff79ed7f));
     startStopButton.setColour (TextButton::textColourOffId, Colours::black);
     startStopButton.onClick = [this] { startOrStop(); };
+    startStopButton.setEnabled( audioProcessor.transportSource.getTotalLength() > 0);
     
     // audio setup
     formatManager.registerBasicFormats();
@@ -258,7 +261,8 @@ transportSource(p.transportSource)
 
 AudioFilePlayerAudioProcessorEditor::~AudioFilePlayerAudioProcessorEditor()
 {
-    transportSource  .setSource (nullptr);
+    audioProcessor.transportSource.removeChangeListener(this);
+    transportSource  .setSource (nullptr); //TODO: figure out where this should go.
     
     fileTreeComp.removeListener (this);
     
@@ -300,8 +304,14 @@ void AudioFilePlayerAudioProcessorEditor::resized()
 //==============================================================================
 void AudioFilePlayerAudioProcessorEditor::showAudioResource (URL resource)
 {
-    if (loadURLIntoTransport (resource))
+    auto successfullyLoaded = loadURLIntoTransport(resource);
+    if( successfullyLoaded )
+    {
         currentAudioFile = std::move (resource);
+    }
+    
+    startStopButton.setEnabled(successfullyLoaded);
+    startStopButton.setButtonText( successfullyLoaded ? "Start" : "Stop" );
     
     zoomSlider.setValue (0, dontSendNotification);
     thumbnail->setURL (currentAudioFile);
@@ -342,17 +352,13 @@ bool AudioFilePlayerAudioProcessorEditor::loadURLIntoTransport (const URL& audio
     return false;
 }
 
+/*
+ migrate this to the audio processor
+ the startStopButton should be attached to an AudioparameterBool
+ */
 void AudioFilePlayerAudioProcessorEditor::startOrStop()
 {
-    if (transportSource.isPlaying())
-    {
-        transportSource.stop();
-    }
-    else
-    {
-        transportSource.setPosition (0);
-        transportSource.start();
-    }
+    audioProcessor.transportIsPlaying.set( startStopButton.getToggleState() );
 }
 
 void AudioFilePlayerAudioProcessorEditor::updateFollowTransportState()
@@ -373,5 +379,13 @@ void AudioFilePlayerAudioProcessorEditor::browserRootChanged (const File&)      
 void AudioFilePlayerAudioProcessorEditor::changeListenerCallback (ChangeBroadcaster* source)
 {
     if (source == thumbnail.get())
+    {
         showAudioResource (URL (thumbnail->getLastDroppedFile()));
+    }
+    else if( source == &audioProcessor.transportSource )
+    {
+        auto isPlaying = audioProcessor.transportSource.isPlaying();
+        startStopButton.setButtonText( isPlaying ? "Stop" : "Start" );
+        startStopButton.setEnabled( audioProcessor.transportSource.getTotalLength() > 0);
+    }
 }

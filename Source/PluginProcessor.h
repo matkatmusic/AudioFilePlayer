@@ -12,6 +12,21 @@
 
 using namespace juce;
 //==============================================================================
+namespace Params
+{
+enum class Names
+{
+};
+
+inline const std::map<Names, juce::String>& GetParamNames()
+{
+    static std::map<Names, juce::String> names =
+    {
+    };
+    
+    return names;
+}
+}
 /**
 */
 class AudioFilePlayerAudioProcessor  : public juce::AudioProcessor
@@ -58,7 +73,13 @@ public:
     URL currentAudioFile;
     AudioTransportSource transportSource;
     std::unique_ptr<AudioFormatReaderSource> currentAudioFileSource;
+    
+    using APVTS = juce::AudioProcessorValueTreeState;
+    static APVTS::ParameterLayout createParameterLayout();
+    APVTS apvts { *this, nullptr, "Properties", createParameterLayout() };
+    juce::Atomic<bool> transportIsPlaying { false };
 private:
+    void refreshTransportState();
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioFilePlayerAudioProcessor)
 };

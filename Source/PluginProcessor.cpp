@@ -144,6 +144,8 @@ void AudioFilePlayerAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
     // this code if your algorithm always overwrites all the output channels.
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
+    
+    refreshTransportState();
 
     AudioSourceChannelInfo asci(&buffer, 0, buffer.getNumSamples());
     transportSource.getNextAudioBlock(asci);
@@ -174,6 +176,44 @@ void AudioFilePlayerAudioProcessor::setStateInformation (const void* data, int s
     // whose contents will have been created by the getStateInformation() call.
 }
 
+AudioProcessorValueTreeState::ParameterLayout AudioFilePlayerAudioProcessor::createParameterLayout()
+{
+    AudioProcessorValueTreeState::ParameterLayout layout;
+    
+    using namespace Params;
+//    const auto& paramNames = GetParamNames();
+    
+    return layout;
+}
+
+void AudioFilePlayerAudioProcessor::refreshTransportState()
+{
+    auto transportSourceIsPlaying = transportSource.isPlaying();
+    auto transportSourceShouldBePlaying = transportIsPlaying.get();
+    
+    //if it's playing and should be playing, do nothing
+    //if it's not playing and should not be playing, do nothing.
+    if( transportSourceIsPlaying == transportSourceShouldBePlaying )
+        return;
+    
+    //if it's playing and should not be playing, stop playback
+    if(transportSourceIsPlaying && ! transportSourceShouldBePlaying )
+    {
+        DBG( "stopping transport" );
+        transportSource.stop();
+    }
+    //if it's not playing and should be playing...
+    else if( ! transportSourceIsPlaying && transportSourceShouldBePlaying )
+    {
+        //start playback if you have something to play back!
+        if( transportSource.getTotalLength() > 0 )
+        {
+            DBG( "starting transport" );
+            transportSource.setPosition (0); //TODO: this should be an audio parameter.
+            transportSource.start();
+        }
+    }
+}
 //==============================================================================
 // This creates new instances of the plugin..
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

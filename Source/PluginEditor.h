@@ -124,7 +124,7 @@ private:
     Label zoomLabel                     { {}, "zoom:" };
     Slider zoomSlider                   { Slider::LinearHorizontal, Slider::NoTextBox };
     ToggleButton followTransportButton  { "Follow Transport" };
-    TextButton startStopButton          { "Play/Stop" };
+    TextButton startStopButton          { "Load an audio file first..." };
     
     //==============================================================================
     void showAudioResource (URL resource);
