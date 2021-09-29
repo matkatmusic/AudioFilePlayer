@@ -22,6 +22,10 @@ AudioFilePlayerAudioProcessor::AudioFilePlayerAudioProcessor()
                        )
 #endif
 {
+    formatManager.registerBasicFormats();
+    
+    directoryList.setDirectory (File::getSpecialLocation (File::userHomeDirectory), true, true);
+    directoryScannerBackgroundThread.startThread (3);
 }
 
 AudioFilePlayerAudioProcessor::~AudioFilePlayerAudioProcessor()

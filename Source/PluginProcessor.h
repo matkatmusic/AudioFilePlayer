@@ -71,6 +71,7 @@ public:
 
     
     URL currentAudioFile;
+    AudioFormatManager formatManager;
     AudioTransportSource transportSource;
     std::unique_ptr<AudioFormatReaderSource> currentAudioFileSource;
     
@@ -78,6 +79,10 @@ public:
     static APVTS::ParameterLayout createParameterLayout();
     APVTS apvts { *this, nullptr, "Properties", createParameterLayout() };
     juce::Atomic<bool> transportIsPlaying { false };
+    
+    TimeSliceThread directoryScannerBackgroundThread  { "audio file preview" };
+    
+    DirectoryContentsList directoryList {nullptr, directoryScannerBackgroundThread};
 private:
     void refreshTransportState();
     //==============================================================================

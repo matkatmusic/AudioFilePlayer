@@ -221,7 +221,6 @@ transportSource(p.transportSource)
     
     addAndMakeVisible (fileTreeComp);
     
-    directoryList.setDirectory (File::getSpecialLocation (File::userHomeDirectory), true, true);
     
     fileTreeComp.setColour (FileTreeComponent::backgroundColourId, Colours::lightgrey.withAlpha (0.6f));
     fileTreeComp.addListener (this);
@@ -238,7 +237,9 @@ transportSource(p.transportSource)
     zoomSlider.onValueChange = [this] { thumbnail->setZoomFactor (zoomSlider.getValue()); };
     zoomSlider.setSkewFactor (2);
     
-    thumbnail.reset (new DemoThumbnailComp (formatManager, transportSource, zoomSlider));
+    thumbnail.reset (new DemoThumbnailComp (audioProcessor.formatManager,
+                                            transportSource,
+                                            zoomSlider));
     addAndMakeVisible (thumbnail.get());
     thumbnail->addChangeListener (this);
     audioProcessor.transportSource.addChangeListener(this);
@@ -250,10 +251,8 @@ transportSource(p.transportSource)
     startStopButton.onClick = [this] { startOrStop(); };
     startStopButton.setEnabled( audioProcessor.transportSource.getTotalLength() > 0);
     
-    // audio setup
-    formatManager.registerBasicFormats();
     
-    directoryScannerBackgroundThread.startThread (3);
+    
     
     setOpaque (true);
     setSize (500, 500);
@@ -307,14 +306,14 @@ void AudioFilePlayerAudioProcessorEditor::showAudioResource (URL resource)
     auto successfullyLoaded = loadURLIntoTransport(resource);
     if( successfullyLoaded )
     {
-        currentAudioFile = std::move (resource);
+        audioProcessor.currentAudioFile = std::move (resource);
     }
     
     startStopButton.setEnabled(successfullyLoaded);
     startStopButton.setButtonText( successfullyLoaded ? "Start" : "Stop" );
     
     zoomSlider.setValue (0, dontSendNotification);
-    thumbnail->setURL (currentAudioFile);
+    thumbnail->setURL (audioProcessor.currentAudioFile);
 }
 
 bool AudioFilePlayerAudioProcessorEditor::loadURLIntoTransport (const URL& audioURL)
@@ -328,11 +327,11 @@ bool AudioFilePlayerAudioProcessorEditor::loadURLIntoTransport (const URL& audio
     
     if (audioURL.isLocalFile())
     {
-        reader.reset(formatManager.createReaderFor (audioURL.getLocalFile()));
+        reader.reset(audioProcessor.formatManager.createReaderFor (audioURL.getLocalFile()));
     }
     else
     {
-        reader.reset(formatManager.createReaderFor (audioURL.createInputStream (false)));
+        reader.reset(audioProcessor.formatManager.createReaderFor (audioURL.createInputStream (false)));
     }
     
     if (reader != nullptr)
@@ -343,7 +342,7 @@ bool AudioFilePlayerAudioProcessorEditor::loadURLIntoTransport (const URL& audio
         // ..and plug it into our transport source
         transportSource.setSource (currentAudioFileSource.get(),
                                    32768,                   // tells it to buffer this many samples ahead
-                                   &directoryScannerBackgroundThread,                 // this is the background thread to use for reading-ahead
+                                   &audioProcessor.directoryScannerBackgroundThread,                 // this is the background thread to use for reading-ahead
                                    sampleRate);     // allows for sample rate correction
         
         return true;
