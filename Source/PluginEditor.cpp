@@ -250,7 +250,7 @@ transportSource(p.transportSource)
     // audio setup
     formatManager.registerBasicFormats();
     
-    thread.startThread (3);
+    directoryScannerBackgroundThread.startThread (3);
     
     setOpaque (true);
     setSize (500, 500);
@@ -333,7 +333,7 @@ bool AudioFilePlayerAudioProcessorEditor::loadURLIntoTransport (const URL& audio
         // ..and plug it into our transport source
         transportSource.setSource (currentAudioFileSource.get(),
                                    32768,                   // tells it to buffer this many samples ahead
-                                   &thread,                 // this is the background thread to use for reading-ahead
+                                   &directoryScannerBackgroundThread,                 // this is the background thread to use for reading-ahead
                                    reader->sampleRate);     // allows for sample rate correction
         
         return true;

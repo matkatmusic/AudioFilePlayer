@@ -107,10 +107,9 @@ private:
     // if this PIP is running inside the demo runner, we'll use the shared device manager instead
     AudioFilePlayerAudioProcessor& audioProcessor;
     AudioFormatManager formatManager;
-    TimeSliceThread thread  { "audio file preview" };
+    TimeSliceThread directoryScannerBackgroundThread  { "audio file preview" };
     
-    
-    DirectoryContentsList directoryList {nullptr, thread};
+    DirectoryContentsList directoryList {nullptr, directoryScannerBackgroundThread};
     FileTreeComponent fileTreeComp {directoryList};
     Label explanation { {}, "Select an audio file in the treeview above, and this page will display its waveform, and let you play it.." };
     
