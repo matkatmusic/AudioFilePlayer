@@ -324,27 +324,27 @@ bool AudioFilePlayerAudioProcessorEditor::loadURLIntoTransport (const URL& audio
     transportSource.setSource (nullptr);
     currentAudioFileSource.reset();
     
-    AudioFormatReader* reader = nullptr;
+    std::unique_ptr<AudioFormatReader> reader;
     
     if (audioURL.isLocalFile())
     {
-        reader = formatManager.createReaderFor (audioURL.getLocalFile());
+        reader.reset(formatManager.createReaderFor (audioURL.getLocalFile()));
     }
     else
     {
-        if (reader == nullptr)
-            reader = formatManager.createReaderFor (audioURL.createInputStream (false));
+        reader.reset(formatManager.createReaderFor (audioURL.createInputStream (false)));
     }
     
     if (reader != nullptr)
     {
-        currentAudioFileSource.reset (new AudioFormatReaderSource (reader, true));
+        auto sampleRate = reader->sampleRate;
+        currentAudioFileSource.reset (new AudioFormatReaderSource (reader.release(), true));
         
         // ..and plug it into our transport source
         transportSource.setSource (currentAudioFileSource.get(),
                                    32768,                   // tells it to buffer this many samples ahead
                                    &directoryScannerBackgroundThread,                 // this is the background thread to use for reading-ahead
-                                   reader->sampleRate);     // allows for sample rate correction
+                                   sampleRate);     // allows for sample rate correction
         
         return true;
     }
