@@ -210,7 +210,7 @@ void DemoThumbnailComp::updateCursorPosition()
 {
     if( transportSource != nullptr )
     {
-        currentPositionMarker.setVisible (transportSource->isPlaying() || isMouseButtonDown());
+//        currentPositionMarker.setVisible (transportSource->isPlaying() || isMouseButtonDown());
         
         currentPositionMarker.setRectangle (Rectangle<float> (timeToX (transportSource->getCurrentPosition()) - 0.75f, 0,
                                                               1.5f, (float) (getHeight() - scrollbar.getHeight())));
