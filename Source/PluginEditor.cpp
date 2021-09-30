@@ -432,16 +432,17 @@ void AudioFilePlayerAudioProcessorEditor::changeListenerCallback (ChangeBroadcas
 
 void AudioFilePlayerAudioProcessorEditor::timerCallback()
 {
-    bool hasValidSource = audioProcessor.activeSource.get() != nullptr;
+    auto src = audioProcessor.activeSource; //a local copy.  causes a data race, which is weird because activeSource is reference counted, and the reference counting is atomic..
+    bool hasValidSource = src.get() != nullptr;
     if( hasValidSource )
     {
-        if( audioProcessor.activeSource.get() != activeSource.get() )
+        if( src.get() != activeSource.get() )
         {
             //we have a new source!
-            //create a new thumbnail
-            //update the startStopButton
-            AudioFilePlayerAudioProcessor::refreshCurrentFileInAPVTS(audioProcessor.apvts, audioProcessor.activeSource->currentAudioFile);
-            activeSource = audioProcessor.activeSource;
+            //update the file path in the APVTS.
+            //update the thumbnail.
+            AudioFilePlayerAudioProcessor::refreshCurrentFileInAPVTS(audioProcessor.apvts, src->currentAudioFile);
+            activeSource = src;
             
             zoomSlider.setValue (0, dontSendNotification);
         
@@ -449,6 +450,7 @@ void AudioFilePlayerAudioProcessorEditor::timerCallback()
             thumbnail->setURL (activeSource->currentAudioFile);
         }
         
+        //update the startStopButton
         startStopButton.setButtonText( ! activeSource->transportSource.isPlaying() ? "Start" : "Stop" );
         
     }
