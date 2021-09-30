@@ -187,12 +187,35 @@ void AudioFilePlayerAudioProcessor::getStateInformation (juce::MemoryBlock& dest
     // You should use this method to store your parameters in the memory block.
     // You could do that either as raw data, or use the XML or ValueTree classes
     // as intermediaries to make it easy to save and load complex data.
+    if( activeSource != nullptr )
+    {
+        refreshCurrentFileInAPVTS(apvts, activeSource->currentAudioFile);
+        
+        juce::MemoryOutputStream mos(destData, true);
+        apvts.state.writeToStream(mos);
+    }
 }
 
 void AudioFilePlayerAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
+    auto tree = juce::ValueTree::readFromData(data, sizeInBytes);
+    if( tree.isValid() )
+    {
+        apvts.replaceState(tree);
+        if( auto url = apvts.state.getProperty("CurrentFile", {});
+           url != var() )
+        {
+            File file( url.toString() );
+            jassert(file.existsAsFile());
+            if( file.existsAsFile() )
+            {
+                juce::URL path( file );
+                transportSourceCreator.requestTransportForURL(path);
+            }
+        }
+    }
 }
 
 AudioProcessorValueTreeState::ParameterLayout AudioFilePlayerAudioProcessor::createParameterLayout()
@@ -229,8 +252,7 @@ void AudioFilePlayerAudioProcessor::refreshTransportState()
         if( activeSource->transportSource.getTotalLength() > 0 )
         {
             DBG( "starting transport" );
-            auto position = 0; //TODO: apvts.getParameter(currentPosition)->get();
-            activeSource->transportSource.setPosition (position);
+//            activeSource->transportSource.setPosition (position);
             activeSource->transportSource.start();
         }
     }

@@ -317,6 +317,16 @@ public:
     TransportSourceCreator transportSourceCreator {fifo, pool, directoryScannerBackgroundThread, formatManager};
     
     ReferencedTransportSource::Ptr activeSource;
+    
+    template<typename SourceType>
+    static void refreshCurrentFileInAPVTS(APVTS& apvts, SourceType& currentAudioFile)
+    {
+        auto file = currentAudioFile.getLocalFile();
+        if( file.existsAsFile() )
+        {
+            apvts.state.setProperty("CurrentFile", file.getFullPathName(), nullptr);
+        }
+    }
 private:
     void refreshTransportState();
     int maxBlockSize { 512 };

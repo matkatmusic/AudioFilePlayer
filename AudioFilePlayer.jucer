@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="zKVGJR" name="AudioFilePlayer" projectType="audioplug" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" companyName="Matkat Music LLC">
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" companyName="Matkat Music LLC"
+              cppLanguageStandard="17">
   <MAINGROUP id="i1dEHt" name="AudioFilePlayer">
     <GROUP id="{06435254-2A85-152E-8D3B-A8AF10A2FAC8}" name="Source">
       <FILE id="Bjg0yF" name="PluginProcessor.cpp" compile="1" resource="0"

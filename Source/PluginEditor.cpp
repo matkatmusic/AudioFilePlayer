@@ -440,15 +440,17 @@ void AudioFilePlayerAudioProcessorEditor::timerCallback()
             //we have a new source!
             //create a new thumbnail
             //update the startStopButton
-        
+            AudioFilePlayerAudioProcessor::refreshCurrentFileInAPVTS(audioProcessor.apvts, audioProcessor.activeSource->currentAudioFile);
             activeSource = audioProcessor.activeSource;
-            startStopButton.setButtonText( ! activeSource->transportSource.isPlaying() ? "Start" : "Stop" );
-        
+            
             zoomSlider.setValue (0, dontSendNotification);
         
             thumbnail->changeSource(activeSource->transportSource);
             thumbnail->setURL (activeSource->currentAudioFile);
         }
+        
+        startStopButton.setButtonText( ! activeSource->transportSource.isPlaying() ? "Start" : "Stop" );
+        
     }
     
     startStopButton.setEnabled( hasValidSource );
