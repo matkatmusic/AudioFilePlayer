@@ -30,7 +30,6 @@ private Timer
 {
 public:
     DemoThumbnailComp (AudioFormatManager& formatManager,
-                       AudioTransportSource& source,
                        Slider& slider);
     
     ~DemoThumbnailComp() override;
@@ -63,9 +62,9 @@ public:
     
     void mouseWheelMove (const MouseEvent&, const MouseWheelDetails& wheel) override;
     
-    
+    void changeSource(AudioTransportSource& source); //TODO: use the ReferenceCountedType from PluginProcessor.h
 private:
-    AudioTransportSource& transportSource;
+    AudioTransportSource* transportSource { nullptr };
     Slider& zoomSlider;
     ScrollBar scrollbar  { false };
     
@@ -92,7 +91,8 @@ private:
 
 class AudioFilePlayerAudioProcessorEditor  : public juce::AudioProcessorEditor,
 private FileBrowserListener,
-private ChangeListener
+private ChangeListener,
+public Timer
 {
 public:
     AudioFilePlayerAudioProcessorEditor(AudioFilePlayerAudioProcessor& p);
@@ -103,24 +103,28 @@ public:
     
     void resized() override;
     
+    void timerCallback() override;
 private:
     // if this PIP is running inside the demo runner, we'll use the shared device manager instead
     AudioFilePlayerAudioProcessor& audioProcessor;
     
-    FileTreeComponent fileTreeComp {audioProcessor.directoryList};
+    DirectoryContentsList directoryList;
+    FileTreeComponent fileTreeComp {directoryList};
     Label explanation { {}, "Select an audio file in the treeview above, and this page will display its waveform, and let you play it.." };
     
     /*
      find the code that configures this
      */
-    AudioTransportSource& transportSource;
-    std::unique_ptr<AudioFormatReaderSource> currentAudioFileSource;
+//    AudioTransportSource& transportSource;
+//    std::unique_ptr<AudioFormatReaderSource> currentAudioFileSource;
     
     std::unique_ptr<DemoThumbnailComp> thumbnail;
     Label zoomLabel                     { {}, "zoom:" };
     Slider zoomSlider                   { Slider::LinearHorizontal, Slider::NoTextBox };
     ToggleButton followTransportButton  { "Follow Transport" };
     TextButton startStopButton          { "Load an audio file first..." };
+    
+    ReferencedTransportSource::Ptr activeSource;
     
     //==============================================================================
     void showAudioResource (URL resource);

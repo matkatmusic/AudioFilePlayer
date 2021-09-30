@@ -23,8 +23,6 @@ AudioFilePlayerAudioProcessor::AudioFilePlayerAudioProcessor()
 #endif
 {
     formatManager.registerBasicFormats();
-    
-    directoryList.setDirectory (File::getSpecialLocation (File::userHomeDirectory), true, true);
     directoryScannerBackgroundThread.startThread (3);
 }
 
@@ -99,7 +97,9 @@ void AudioFilePlayerAudioProcessor::prepareToPlay (double sampleRate, int sample
 {
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
-    transportSource.prepareToPlay(samplesPerBlock, sampleRate);
+    maxBlockSize = samplesPerBlock;
+    transportSourceCreator.setBlockSize(maxBlockSize);
+    transportSourceCreator.setSampleRate(sampleRate);
 }
 
 void AudioFilePlayerAudioProcessor::releaseResources()
@@ -149,10 +149,25 @@ void AudioFilePlayerAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
     
-    refreshTransportState();
-
-    AudioSourceChannelInfo asci(&buffer, 0, buffer.getNumSamples());
-    transportSource.getNextAudioBlock(asci);
+    ReferencedTransportSource::Ptr ptr;
+    while( fifo.pull(ptr) )
+    {
+        ;
+    }
+    
+    if( ptr != nullptr )
+    {
+        pool.add(activeSource);
+        activeSource = ptr;
+    }
+    
+    if( activeSource != nullptr )
+    {
+        refreshTransportState();
+        
+        AudioSourceChannelInfo asci(&buffer, 0, buffer.getNumSamples());
+        activeSource->transportSource.getNextAudioBlock(asci);
+    }
 }
 
 //==============================================================================
@@ -192,7 +207,8 @@ AudioProcessorValueTreeState::ParameterLayout AudioFilePlayerAudioProcessor::cre
 
 void AudioFilePlayerAudioProcessor::refreshTransportState()
 {
-    auto transportSourceIsPlaying = transportSource.isPlaying();
+    jassert(activeSource != nullptr );
+    auto transportSourceIsPlaying = activeSource->transportSource.isPlaying();
     auto transportSourceShouldBePlaying = transportIsPlaying.get();
     
     //if it's playing and should be playing, do nothing
@@ -204,17 +220,18 @@ void AudioFilePlayerAudioProcessor::refreshTransportState()
     if(transportSourceIsPlaying && ! transportSourceShouldBePlaying )
     {
         DBG( "stopping transport" );
-        transportSource.stop();
+        activeSource->transportSource.stop();
     }
     //if it's not playing and should be playing...
     else if( ! transportSourceIsPlaying && transportSourceShouldBePlaying )
     {
         //start playback if you have something to play back!
-        if( transportSource.getTotalLength() > 0 )
+        if( activeSource->transportSource.getTotalLength() > 0 )
         {
             DBG( "starting transport" );
-            transportSource.setPosition (0); //TODO: this should be an audio parameter.
-            transportSource.start();
+            auto position = 0; //TODO: apvts.getParameter(currentPosition)->get();
+            activeSource->transportSource.setPosition (position);
+            activeSource->transportSource.start();
         }
     }
 }
