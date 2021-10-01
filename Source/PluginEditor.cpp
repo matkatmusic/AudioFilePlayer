@@ -142,7 +142,7 @@ void DemoThumbnailComp::mouseDrag (const MouseEvent& e)
 
 void DemoThumbnailComp::mouseUp (const MouseEvent&)
 {
-    transportSource.start();
+//    transportSource.start();
 }
 
 void DemoThumbnailComp::mouseWheelMove (const MouseEvent&, const MouseWheelDetails& wheel)
