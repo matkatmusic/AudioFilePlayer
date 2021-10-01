@@ -150,21 +150,21 @@ private:
     }
 };
 //==============================================================================
-struct ReferencedTransportSource : juce::ReferenceCountedObject
+struct ReferencedTransportSourceData : juce::ReferenceCountedObject
 {
-    using Ptr = juce::ReferenceCountedObjectPtr<ReferencedTransportSource>;
+    using Ptr = juce::ReferenceCountedObjectPtr<ReferencedTransportSourceData>;
     
     std::unique_ptr<AudioFormatReaderSource> currentAudioFileSource;
-    juce::AudioTransportSource transportSource;
     juce::URL currentAudioFile;
+    double audioFileSourceSampleRate { 0 };
 };
 
-struct TransportSourceCreator : juce::Thread
+struct AudioFormatReaderSourceCreator : juce::Thread
 {
-    TransportSourceCreator(Fifo<ReferencedTransportSource::Ptr>& fifo,
-                           ReleasePool<ReferencedTransportSource>& pool,
-                           TimeSliceThread& tst,
-                           AudioFormatManager& afm) :
+    AudioFormatReaderSourceCreator(Fifo<ReferencedTransportSourceData::Ptr>& fifo,
+                                   ReleasePool<ReferencedTransportSourceData>& pool,
+                                   TimeSliceThread& tst,
+                                   AudioFormatManager& afm) :
     juce::Thread("TransportSourceCreator"),
     transportSourceFifo(fifo),
     releasePool(pool),
@@ -174,7 +174,7 @@ struct TransportSourceCreator : juce::Thread
         startThread();
     }
     
-    ~TransportSourceCreator()
+    ~AudioFormatReaderSourceCreator()
     {
         stopThread(500);
     }
@@ -205,20 +205,13 @@ struct TransportSourceCreator : juce::Thread
                         
                         if (reader != nullptr)
                         {
-                            using RTS = ReferencedTransportSource;
-                            RTS::Ptr rts = new ReferencedTransportSource();
-                            rts->transportSource.prepareToPlay(blockSize.get(), sampleRate.get());
+                            using RTS = ReferencedTransportSourceData;
+                            RTS::Ptr rts = new ReferencedTransportSourceData();
                             
-                            auto sampleRate = reader->sampleRate;
+                            rts->audioFileSourceSampleRate = reader->sampleRate;
                             
                             rts->currentAudioFileSource.reset (new AudioFormatReaderSource (reader.release(), true));
                             rts->currentAudioFile = audioURL;
-                            
-                            // ..and plug it into our transport source
-                            rts->transportSource.setSource (rts->currentAudioFileSource.get(),
-                                                       32768,                   // tells it to buffer this many samples ahead
-                                                       &directoryScannerBackgroundThread,                 // this is the background thread to use for reading-ahead
-                                                       sampleRate);     // allows for sample rate correction
                             
                             //add it to the release pool
                             releasePool.add(rts);
@@ -244,22 +237,16 @@ struct TransportSourceCreator : juce::Thread
         
         return false;
     }
-    
-    void setSampleRate(double rate) { sampleRate.set( rate ); }
-    void setBlockSize(int size) { blockSize.set( size ); }
 private:
     Fifo<juce::URL> urlFifo;
-    Fifo<ReferencedTransportSource::Ptr>& transportSourceFifo;
-    ReleasePool<ReferencedTransportSource>& releasePool;
+    Fifo<ReferencedTransportSourceData::Ptr>& transportSourceFifo;
+    ReleasePool<ReferencedTransportSourceData>& releasePool;
     
     TimeSliceThread& directoryScannerBackgroundThread;
     
     juce::Atomic<bool> urlNeedsProcessingFlag { false };
     
     AudioFormatManager& formatManager;
-    
-    juce::Atomic<double> sampleRate { 44100.0 };
-    juce::Atomic<int> blockSize { 512 };
 };
 /**
 */
@@ -310,13 +297,14 @@ public:
     
     TimeSliceThread directoryScannerBackgroundThread  { "audio file preview" };
     
-    Fifo<ReferencedTransportSource::Ptr> fifo;
-    ReleasePool<ReferencedTransportSource> pool;
+    Fifo<ReferencedTransportSourceData::Ptr> fifo;
+    ReleasePool<ReferencedTransportSourceData> pool;
     
+    AudioTransportSource transportSource;
     AudioFormatManager formatManager;
-    TransportSourceCreator transportSourceCreator {fifo, pool, directoryScannerBackgroundThread, formatManager};
+    AudioFormatReaderSourceCreator transportSourceCreator {fifo, pool, directoryScannerBackgroundThread, formatManager};
     
-    ReferencedTransportSource::Ptr activeSource;
+    ReferencedTransportSourceData::Ptr activeSource;
     
     template<typename SourceType>
     static void refreshCurrentFileInAPVTS(APVTS& apvts, SourceType& currentAudioFile)
@@ -327,9 +315,8 @@ public:
             apvts.state.setProperty("CurrentFile", file.getFullPathName(), nullptr);
         }
     }
+    juce::Atomic<bool> sourceHasChanged { false };
 private:
-    void refreshTransportState();
-    int maxBlockSize { 512 };
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioFilePlayerAudioProcessor)
 };

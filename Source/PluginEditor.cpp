@@ -10,9 +10,9 @@
 #include "PluginEditor.h"
 
 DemoThumbnailComp::DemoThumbnailComp (AudioFormatManager& formatManager,
-//                   AudioTransportSource& source,
-                   Slider& slider)
-: //transportSource (source),
+                                      Slider& slider,
+                                      AudioTransportSource& source)
+: transportSource (source),
 zoomSlider (slider),
 thumbnail (512, formatManager, thumbnailCache)
 {
@@ -136,14 +136,13 @@ void DemoThumbnailComp::mouseDown (const MouseEvent& e)
 
 void DemoThumbnailComp::mouseDrag (const MouseEvent& e)
 {
-    if (canMoveTransport() && transportSource != nullptr)
-        transportSource->setPosition (jmax (0.0, xToTime ((float) e.x)));
+    if (canMoveTransport())
+        transportSource.setPosition (jmax (0.0, xToTime ((float) e.x)));
 }
 
 void DemoThumbnailComp::mouseUp (const MouseEvent&)
 {
-    if( transportSource != nullptr )
-        transportSource->start();
+    transportSource.start();
 }
 
 void DemoThumbnailComp::mouseWheelMove (const MouseEvent&, const MouseWheelDetails& wheel)
@@ -178,7 +177,7 @@ double DemoThumbnailComp::xToTime (const float x) const
 
 bool DemoThumbnailComp::canMoveTransport() const noexcept
 {
-    return ! (isFollowingTransport && transportSource != nullptr && transportSource->isPlaying());
+    return ! (isFollowingTransport && transportSource.isPlaying());
 }
 
 void DemoThumbnailComp::scrollBarMoved (ScrollBar* scrollBarThatHasMoved, double newRangeStart)
@@ -186,8 +185,7 @@ void DemoThumbnailComp::scrollBarMoved (ScrollBar* scrollBarThatHasMoved, double
     if (scrollBarThatHasMoved == &scrollbar)
     {
         if (! (isFollowingTransport &&
-               transportSource != nullptr &&
-               transportSource->isPlaying()))
+               transportSource.isPlaying()))
         {
             setRange (visibleRange.movedToStartAt (newRangeStart));
         }
@@ -200,27 +198,16 @@ void DemoThumbnailComp::timerCallback()
     {
         updateCursorPosition();
     }
-    else if( transportSource != nullptr )
+    else
     {
-        setRange (visibleRange.movedToStartAt (transportSource->getCurrentPosition() - (visibleRange.getLength() / 2.0)));
+        setRange (visibleRange.movedToStartAt (transportSource.getCurrentPosition() - (visibleRange.getLength() / 2.0)));
     }
 }
 
 void DemoThumbnailComp::updateCursorPosition()
 {
-    if( transportSource != nullptr )
-    {
-//        currentPositionMarker.setVisible (transportSource->isPlaying() || isMouseButtonDown());
-        
-        currentPositionMarker.setRectangle (Rectangle<float> (timeToX (transportSource->getCurrentPosition()) - 0.75f, 0,
-                                                              1.5f, (float) (getHeight() - scrollbar.getHeight())));
-    }
-}
-
-void DemoThumbnailComp::changeSource(AudioTransportSource &source)
-{
-    transportSource = &source;
-    //you need to call setURL after this
+    currentPositionMarker.setRectangle (Rectangle<float> (timeToX (transportSource.getCurrentPosition()) - 0.75f, 0,
+                                                          1.5f, (float) (getHeight() - scrollbar.getHeight())));
 }
 //==============================================================================
 AudioFilePlayerAudioProcessorEditor::AudioFilePlayerAudioProcessorEditor(AudioFilePlayerAudioProcessor& p) :
@@ -260,8 +247,8 @@ directoryList(nullptr, audioProcessor.directoryScannerBackgroundThread)
     zoomSlider.setSkewFactor (2);
     
     thumbnail.reset (new DemoThumbnailComp (audioProcessor.formatManager,
-//                                            transportSource,
-                                            zoomSlider));
+                                            zoomSlider,
+                                            audioProcessor.transportSource));
     addAndMakeVisible (thumbnail.get());
     thumbnail->addChangeListener (this); //listen for dragAndDrop activities
     /*
@@ -332,67 +319,17 @@ void AudioFilePlayerAudioProcessorEditor::resized()
 }
 
 //==============================================================================
-void AudioFilePlayerAudioProcessorEditor::showAudioResource (URL resource)
-{
-    auto successfullyLoaded = loadURLIntoTransport(resource);
-    /*
-    if( successfullyLoaded )
-    {
-        audioProcessor.currentAudioFile = std::move (resource);
-    }
-    
-    startStopButton.setEnabled(successfullyLoaded);
-    startStopButton.setButtonText( successfullyLoaded ? "Start" : "Stop" );
-    
-    zoomSlider.setValue (0, dontSendNotification);
-    thumbnail->setURL (audioProcessor.currentAudioFile);
-     */
-    //TODO: populate the thumbnail with the active currentAudioFile
-}
-
-bool AudioFilePlayerAudioProcessorEditor::loadURLIntoTransport (const URL& audioURL)
-{
-    // unload the previous file source and delete it..
-    return audioProcessor.transportSourceCreator.requestTransportForURL(audioURL);
-//    transportSource.stop();
-//    transportSource.setSource (nullptr);
-//    currentAudioFileSource.reset();
-//
-//    std::unique_ptr<AudioFormatReader> reader;
-//
-//    if (audioURL.isLocalFile())
-//    {
-//        reader.reset(audioProcessor.formatManager.createReaderFor (audioURL.getLocalFile()));
-//    }
-//    else
-//    {
-//        reader.reset(audioProcessor.formatManager.createReaderFor (audioURL.createInputStream (false)));
-//    }
-//
-//    if (reader != nullptr)
-//    {
-//        auto sampleRate = reader->sampleRate;
-//        currentAudioFileSource.reset (new AudioFormatReaderSource (reader.release(), true));
-//
-//        // ..and plug it into our transport source
-//        transportSource.setSource (currentAudioFileSource.get(),
-//                                   32768,                   // tells it to buffer this many samples ahead
-//                                   &audioProcessor.directoryScannerBackgroundThread,                 // this is the background thread to use for reading-ahead
-//                                   sampleRate);     // allows for sample rate correction
-//
-//        return true;
-//    }
-//
-//    return false;
-}
-
-/*
- migrate this to the audio processor
- the startStopButton should be attached to an AudioparameterBool
- */
 void AudioFilePlayerAudioProcessorEditor::startOrStop()
 {
-    audioProcessor.transportIsPlaying.set( startStopButton.getToggleState() );
+    auto shouldPlay = startStopButton.getToggleState();
+    if( shouldPlay )
+    {
+        audioProcessor.transportSource.start();
+    }
+    else
+    {
+        audioProcessor.transportSource.stop();
+    }
 }
 
 void AudioFilePlayerAudioProcessorEditor::updateFollowTransportState()
@@ -400,10 +337,8 @@ void AudioFilePlayerAudioProcessorEditor::updateFollowTransportState()
     thumbnail->setFollowsTransport (followTransportButton.getToggleState());
 }
 
-
 void AudioFilePlayerAudioProcessorEditor::selectionChanged()
 {
-//    showAudioResource (URL (fileTreeComp.getSelectedFile()));
     audioProcessor.transportSourceCreator.requestTransportForURL(URL (fileTreeComp.getSelectedFile()));
 }
 
@@ -415,45 +350,37 @@ void AudioFilePlayerAudioProcessorEditor::changeListenerCallback (ChangeBroadcas
 {
     if (source == thumbnail.get())
     {
-//        showAudioResource (URL (thumbnail->getLastDroppedFile()));
         audioProcessor.transportSourceCreator.requestTransportForURL(URL(thumbnail->getLastDroppedFile()));
     }
-    //TODO: I need a mechanism to signal from the Audio Thread that the active transportSource is/not playing.
-    //I could poll with a timer...
-    /*
-    else if( source == &audioProcessor.transportSource )
-    {
-        auto isPlaying = audioProcessor.transportSource.isPlaying();
-        startStopButton.setButtonText( isPlaying ? "Stop" : "Start" );
-        startStopButton.setEnabled( audioProcessor.transportSource.getTotalLength() > 0);
-    }
-     */
 }
 
 void AudioFilePlayerAudioProcessorEditor::timerCallback()
 {
-    auto src = audioProcessor.activeSource; //a local copy.  causes a data race, which is weird because activeSource is reference counted, and the reference counting is atomic..
-    bool hasValidSource = src.get() != nullptr;
-    if( hasValidSource )
+    if( audioProcessor.sourceHasChanged.compareAndSetBool(false, true) )
     {
-        if( src.get() != activeSource.get() )
+        auto& src = audioProcessor.activeSource; //a local copy.  causes a data race, which is weird because activeSource is reference counted, and the reference counting is atomic..
+        bool hasValidSource = src.get() != nullptr;
+        if( hasValidSource )
         {
-            //we have a new source!
-            //update the file path in the APVTS.
-            //update the thumbnail.
-            AudioFilePlayerAudioProcessor::refreshCurrentFileInAPVTS(audioProcessor.apvts, src->currentAudioFile);
-            activeSource = src;
+            if( src.get() != activeSource.get() )
+            {
+                //we have a new source!
+                //update the file path in the APVTS.
+                //update the thumbnail.
+                AudioFilePlayerAudioProcessor::refreshCurrentFileInAPVTS(audioProcessor.apvts, src->currentAudioFile);
+                activeSource = src;
+                
+                zoomSlider.setValue (0, dontSendNotification);
             
-            zoomSlider.setValue (0, dontSendNotification);
-        
-            thumbnail->changeSource(activeSource->transportSource);
-            thumbnail->setURL (activeSource->currentAudioFile);
+                thumbnail->setURL (activeSource->currentAudioFile);
+            }
         }
-        
-        //update the startStopButton
-        startStopButton.setButtonText( ! activeSource->transportSource.isPlaying() ? "Start" : "Stop" );
-        
+
+        startStopButton.setEnabled( hasValidSource );
     }
     
-    startStopButton.setEnabled( hasValidSource );
+    //update the startStopButton
+    auto isPlaying = audioProcessor.transportSource.isPlaying();
+    startStopButton.setButtonText( ! isPlaying ? "Start" : "Stop" );
+    startStopButton.setToggleState(isPlaying, dontSendNotification);
 }

@@ -30,7 +30,8 @@ private Timer
 {
 public:
     DemoThumbnailComp (AudioFormatManager& formatManager,
-                       Slider& slider);
+                       Slider& slider,
+                       AudioTransportSource& source);
     
     ~DemoThumbnailComp() override;
     
@@ -61,10 +62,8 @@ public:
     void mouseUp (const MouseEvent&) override;
     
     void mouseWheelMove (const MouseEvent&, const MouseWheelDetails& wheel) override;
-    
-    void changeSource(AudioTransportSource& source); //TODO: use the ReferenceCountedType from PluginProcessor.h
 private:
-    AudioTransportSource* transportSource { nullptr };
+    AudioTransportSource& transportSource;
     Slider& zoomSlider;
     ScrollBar scrollbar  { false };
     
@@ -124,13 +123,9 @@ private:
     ToggleButton followTransportButton  { "Follow Transport" };
     TextButton startStopButton          { "Load an audio file first..." };
     
-    ReferencedTransportSource::Ptr activeSource;
+    ReferencedTransportSourceData::Ptr activeSource;
     
     //==============================================================================
-    void showAudioResource (URL resource);
-    
-    bool loadURLIntoTransport (const URL& audioURL);
-    
     void startOrStop();
     
     void updateFollowTransportState();

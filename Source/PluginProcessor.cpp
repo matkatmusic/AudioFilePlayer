@@ -97,9 +97,7 @@ void AudioFilePlayerAudioProcessor::prepareToPlay (double sampleRate, int sample
 {
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
-    maxBlockSize = samplesPerBlock;
-    transportSourceCreator.setBlockSize(maxBlockSize);
-    transportSourceCreator.setSampleRate(sampleRate);
+    transportSource.prepareToPlay(samplesPerBlock, sampleRate);
 }
 
 void AudioFilePlayerAudioProcessor::releaseResources()
@@ -149,7 +147,7 @@ void AudioFilePlayerAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
     
-    ReferencedTransportSource::Ptr ptr;
+    ReferencedTransportSourceData::Ptr ptr;
     while( fifo.pull(ptr) )
     {
         ;
@@ -159,15 +157,16 @@ void AudioFilePlayerAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
     {
         pool.add(activeSource);
         activeSource = ptr;
+        transportSource.stop();
+        transportSource.setSource(activeSource->currentAudioFileSource.get(),
+                                  32768,
+                                  &directoryScannerBackgroundThread,
+                                  activeSource->audioFileSourceSampleRate);
+        sourceHasChanged.set(true);
     }
     
-    if( activeSource != nullptr )
-    {
-        refreshTransportState();
-        
-        AudioSourceChannelInfo asci(&buffer, 0, buffer.getNumSamples());
-        activeSource->transportSource.getNextAudioBlock(asci);
-    }
+    AudioSourceChannelInfo asci(&buffer, 0, buffer.getNumSamples());
+    transportSource.getNextAudioBlock(asci);
 }
 
 //==============================================================================
@@ -226,49 +225,6 @@ AudioProcessorValueTreeState::ParameterLayout AudioFilePlayerAudioProcessor::cre
 //    const auto& paramNames = GetParamNames();
     
     return layout;
-}
-
-void AudioFilePlayerAudioProcessor::refreshTransportState()
-{
-//    auto transportSourceShouldBePlaying = transportIsPlaying.get();
-//    if( activeSource->transportSource.isPlaying() && ! transportSourceShouldBePlaying )
-//    {
-//        activeSource->transportSource.stop();
-//    }
-//    else if(transportSourceShouldBePlaying && ! activeSource->transportSource.isPlaying())
-//    {
-//        //start playback if you have something to play back!
-//        if( activeSource->transportSource.getTotalLength() > 0 )
-//            activeSource->transportSource.start();
-//    }
-    jassert(activeSource != nullptr );
-    auto transportSourceIsPlaying = activeSource->transportSource.isPlaying();
-    auto transportSourceShouldBePlaying = transportIsPlaying.get();
-
-    //if it's playing and should be playing, do nothing
-    //if it's not playing and should not be playing, do nothing.
-    if( transportSourceIsPlaying == transportSourceShouldBePlaying )
-    {
-        return;
-    }
-
-    //if it's playing and should not be playing, stop playback
-    if(transportSourceIsPlaying && ! transportSourceShouldBePlaying )
-    {
-//        DBG( "stopping transport" );
-        activeSource->transportSource.stop();
-    }
-    //if it's not playing and should be playing...
-    else if( ! transportSourceIsPlaying && transportSourceShouldBePlaying )
-    {
-        //start playback if you have something to play back!
-        if( activeSource->transportSource.getTotalLength() > 0 )
-        {
-//            DBG( "starting transport" );
-//            activeSource->transportSource.setPosition (position);
-            activeSource->transportSource.start();
-        }
-    }
 }
 //==============================================================================
 // This creates new instances of the plugin..
