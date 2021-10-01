@@ -22,6 +22,8 @@ AudioFilePlayerAudioProcessor::AudioFilePlayerAudioProcessor()
                        )
 #endif
 {
+    formatManager.registerBasicFormats();
+    directoryScannerBackgroundThread.startThread (3);
 }
 
 AudioFilePlayerAudioProcessor::~AudioFilePlayerAudioProcessor()
@@ -144,7 +146,25 @@ void AudioFilePlayerAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
     // this code if your algorithm always overwrites all the output channels.
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
-
+    
+    ReferencedTransportSourceData::Ptr ptr;
+    while( fifo.pull(ptr) )
+    {
+        ;
+    }
+    
+    if( ptr != nullptr )
+    {
+        pool.add(activeSource);
+        activeSource = ptr;
+        transportSource.stop();
+        transportSource.setSource(activeSource->currentAudioFileSource.get(),
+                                  32768,
+                                  &directoryScannerBackgroundThread,
+                                  activeSource->audioFileSourceSampleRate);
+        sourceHasChanged.set(true);
+    }
+    
     AudioSourceChannelInfo asci(&buffer, 0, buffer.getNumSamples());
     transportSource.getNextAudioBlock(asci);
 }
@@ -166,14 +186,46 @@ void AudioFilePlayerAudioProcessor::getStateInformation (juce::MemoryBlock& dest
     // You should use this method to store your parameters in the memory block.
     // You could do that either as raw data, or use the XML or ValueTree classes
     // as intermediaries to make it easy to save and load complex data.
+    if( activeSource != nullptr )
+    {
+        refreshCurrentFileInAPVTS(apvts, activeSource->currentAudioFile);
+        
+        juce::MemoryOutputStream mos(destData, true);
+        apvts.state.writeToStream(mos);
+    }
 }
 
 void AudioFilePlayerAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
+    auto tree = juce::ValueTree::readFromData(data, sizeInBytes);
+    if( tree.isValid() )
+    {
+        apvts.replaceState(tree);
+        if( auto url = apvts.state.getProperty("CurrentFile", {});
+           url != var() )
+        {
+            File file( url.toString() );
+            jassert(file.existsAsFile());
+            if( file.existsAsFile() )
+            {
+                juce::URL path( file );
+                transportSourceCreator.requestTransportForURL(path);
+            }
+        }
+    }
 }
 
+AudioProcessorValueTreeState::ParameterLayout AudioFilePlayerAudioProcessor::createParameterLayout()
+{
+    AudioProcessorValueTreeState::ParameterLayout layout;
+    
+    using namespace Params;
+//    const auto& paramNames = GetParamNames();
+    
+    return layout;
+}
 //==============================================================================
 // This creates new instances of the plugin..
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
