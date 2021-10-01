@@ -381,6 +381,8 @@ void AudioFilePlayerAudioProcessorEditor::timerCallback()
     
     //update the startStopButton
     auto isPlaying = audioProcessor.transportSource.isPlaying();
-    startStopButton.setButtonText( ! isPlaying ? "Start" : "Stop" );
+    if( audioProcessor.transportSource.getTotalLength() > 0 )
+        startStopButton.setButtonText( ! isPlaying ? "Start" : "Stop" );
+    
     startStopButton.setToggleState(isPlaying, dontSendNotification);
 }
