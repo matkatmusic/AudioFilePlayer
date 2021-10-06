@@ -200,7 +200,8 @@ struct AudioFormatReaderSourceCreator : juce::Thread
                         }
                         else
                         {
-                            reader.reset(formatManager.createReaderFor (audioURL.createInputStream (false)));
+                            auto options = URL::InputStreamOptions(URL::ParameterHandling::inAddress);
+                            reader.reset(formatManager.createReaderFor (audioURL.createInputStream(options)));
                         }
                         
                         if (reader != nullptr)
