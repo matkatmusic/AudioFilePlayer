@@ -23,7 +23,7 @@ AudioFilePlayerAudioProcessor::AudioFilePlayerAudioProcessor()
 #endif
 {
     formatManager.registerBasicFormats();
-    directoryScannerBackgroundThread.startThread (3);
+    directoryScannerBackgroundThread.startThread (juce::Thread::Priority::normal);
 }
 
 AudioFilePlayerAudioProcessor::~AudioFilePlayerAudioProcessor()
